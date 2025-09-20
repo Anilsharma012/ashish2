@@ -75,7 +75,7 @@ export class PhoneAuthService {
 
   // Initialize reCAPTCHA verifier (default invisible)
   initializeRecaptcha(
-    containerId: string,
+    containerId?: string,
     size: "normal" | "compact" | "invisible" = "invisible",
   ): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -86,14 +86,31 @@ export class PhoneAuthService {
           return resolve();
         }
 
-        this.recaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
+        // Ensure a persistent hidden container to avoid React re-renders removing it
+        let container: string | HTMLElement = containerId || "recaptcha-container-global";
+        if (typeof document !== "undefined") {
+          let el = containerId ? document.getElementById(containerId) : null;
+          if (!el) {
+            el = document.getElementById("recaptcha-container-global");
+          }
+          if (!el) {
+            el = document.createElement("div");
+            el.id = "recaptcha-container-global";
+            el.style.position = "fixed";
+            el.style.left = "-9999px";
+            el.style.bottom = "-9999px";
+            document.body.appendChild(el);
+          }
+          container = el;
+        }
+
+        this.recaptchaVerifier = new RecaptchaVerifier(auth, container as any, {
           size,
           callback: () => resolve(),
           "expired-callback": () => reject(new Error("reCAPTCHA expired")),
           "error-callback": (error: any) => reject(error),
         });
 
-        // Store globally for reuse
         if (typeof window !== "undefined") {
           (window as any).recaptchaVerifier = this.recaptchaVerifier;
         }
