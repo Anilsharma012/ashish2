@@ -260,7 +260,7 @@ const ComprehensiveAuth = () => {
 
       // Initialize invisible reCAPTCHA and send OTP
       await phoneAuthServiceRef.current.initializeRecaptcha(
-        "send-otp-btn",
+        undefined,
         "invisible",
       );
       await phoneAuthServiceRef.current.sendOTP(formData.phone);
