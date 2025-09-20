@@ -43,32 +43,66 @@ export default function Categories() {
     fetchPropertyCounts();
   }, []);
 
+  const getBuilderApiKey = () => {
+    const k = (typeof window !== "undefined" && (window as any).BUILDER_PUBLIC_API_KEY) || import.meta.env.VITE_BUILDER_PUBLIC_API_KEY || "";
+    return typeof k === "string" ? k : "";
+  };
+
   const fetchCategories = async (options: { cacheBust?: boolean } = {}) => {
     try {
       setLoading(true);
+      const apiKey = getBuilderApiKey();
       const cacheBuster = options.cacheBust ? `&_=${Date.now()}` : "";
-      const url = `/api/categories?published=true&limit=200${cacheBuster}`;
-      const response = await fetch(url, {
-        headers: {
-          "Cache-Control": "no-cache",
-          Pragma: "no-cache",
-        },
-      });
-      const data = await response
-        .json()
-        .catch(() => ({ success: false, data: [] }));
 
-      if (data.success) {
-        setCategories(data.data || []);
-        try {
-          window.dispatchEvent(new CustomEvent("categories:updated"));
-        } catch {}
+      if (apiKey) {
+        const url = `https://cdn.builder.io/api/v3/content/category?apiKey=${encodeURIComponent(apiKey)}&published=true&limit=200&sort.createdDate=desc${cacheBuster}`;
+        const res = await fetch(url, { headers: { "Cache-Control": "no-cache", Pragma: "no-cache" } });
+        const json = await res.json().catch(() => ({ results: [] }));
+        const items = Array.isArray(json.results) ? json.results : [];
+        const mapped: Category[] = items.map((it: any) => ({
+          _id: it.id || it._id,
+          name: it?.data?.name || it?.name || "",
+          slug: it?.data?.slug || it?.slug || "",
+          icon: it?.data?.icon || "🏷️",
+          description: it?.data?.description || "",
+          subcategories: [],
+          order: Number(it?.data?.order ?? 0),
+          active: Boolean(it?.data?.active ?? true),
+        }));
+        setCategories(mapped);
+        try { window.dispatchEvent(new CustomEvent("categories:updated")); } catch {}
+      } else {
+        const url = `/api/categories?published=true&limit=200${cacheBuster}`;
+        const response = await fetch(url, { headers: { "Cache-Control": "no-cache", Pragma: "no-cache" } });
+        const data = await response.json().catch(() => ({ success: false, data: [] }));
+        if (data.success) {
+          setCategories(data.data || []);
+          try { window.dispatchEvent(new CustomEvent("categories:updated")); } catch {}
+        }
       }
     } catch (error) {
       console.error("Error fetching categories:", error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchSubcategoriesFor = async (category: Category) => {
+    const apiKey = getBuilderApiKey();
+    if (!apiKey || !category?._id) return [] as Subcategory[];
+    const query = encodeURIComponent(JSON.stringify({ "data.parentId": category._id }));
+    const url = `https://cdn.builder.io/api/v3/content/subCategory?apiKey=${encodeURIComponent(apiKey)}&published=true&limit=200&query=${query}`;
+    const res = await fetch(url, { headers: { "Cache-Control": "no-cache", Pragma: "no-cache" } });
+    const json = await res.json().catch(() => ({ results: [] }));
+    const items = Array.isArray(json.results) ? json.results : [];
+    const subs: Subcategory[] = items.map((it: any) => ({
+      id: it?.id || it?._id || it?.data?.id || it?.data?._id || it?.data?.slug || "",
+      name: it?.data?.name || it?.name || "",
+      slug: it?.data?.slug || it?.slug || "",
+      description: it?.data?.description || "",
+      count: it?.data?.count,
+    }));
+    return subs;
   };
 
   const fetchPropertyCounts = async () => {
@@ -96,12 +130,19 @@ export default function Categories() {
     }
   };
 
-  const handleCategoryClick = (category: Category) => {
-    // For mobile: show subcategories
+  const handleCategoryClick = async (category: Category) => {
+    // Prefer showing subcategories with Builder when available
+    const apiKey = getBuilderApiKey();
+    if (apiKey) {
+      const subs = await fetchSubcategoriesFor(category).catch(() => [] as Subcategory[]);
+      setSelectedCategory({ ...category, subcategories: subs });
+      return;
+    }
+
+    // Fallback behavior
     if (window.innerWidth < 768) {
       setSelectedCategory(category);
     } else {
-      // For desktop: navigate directly to category page
       window.location.href = `/categories/${category.slug}`;
     }
   };
