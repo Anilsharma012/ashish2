@@ -5,7 +5,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { ApiResponse } from "@shared/types";
 import { useAuth } from "../hooks/useAuth";
-import { createApiUrl } from "../lib/api";
+import { apiRequest } from "../lib/api";
 
 export default function AdminLogin() {
   const { login } = useAuth();
