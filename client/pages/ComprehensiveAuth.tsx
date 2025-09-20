@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { signInWithGoogle, isFirebaseConfigured } from "@/lib/firebase";
+import {
+  signInWithGoogle,
+  isFirebaseConfigured,
+  onAuthStateChange,
+} from "@/lib/firebase";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
@@ -64,6 +68,18 @@ const ComprehensiveAuth = () => {
       navigate(routes[user.userType] || "/");
     }
   }, [isAuthenticated]);
+
+  // Firebase auth state redirect (fallback)
+  useEffect(() => {
+    const unsub = onAuthStateChange((u) => {
+      if (u) navigate("/");
+    });
+    return () => {
+      try {
+        unsub && unsub();
+      } catch {}
+    };
+  }, []);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -250,7 +266,7 @@ const ComprehensiveAuth = () => {
 
       // Initialize invisible reCAPTCHA and send OTP
       await phoneAuthServiceRef.current.initializeRecaptcha(
-        "recaptcha-container",
+        undefined,
         "invisible",
       );
       await phoneAuthServiceRef.current.sendOTP(formData.phone);
@@ -604,6 +620,7 @@ const ComprehensiveAuth = () => {
                       <div id="recaptcha-container" />
 
                       <Button
+                        id="send-otp-btn"
                         onClick={handleSendOTP}
                         className="w-full bg-[#C70000] hover:bg-[#A50000] text-white"
                         disabled={loading}

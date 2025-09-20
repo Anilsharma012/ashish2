@@ -5,7 +5,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { ApiResponse } from "@shared/types";
 import { useAuth } from "../hooks/useAuth";
-import { createApiUrl } from "../lib/api";
+import { apiRequest } from "../lib/api";
 
 export default function AdminLogin() {
   const { login } = useAuth();
@@ -33,22 +33,21 @@ export default function AdminLogin() {
         loginData.phone = phone;
       }
 
-    const response = await fetch(createApiUrl("auth/login"), {
+      const { data, ok, status } = await apiRequest("auth/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-         credentials: "include",
         body: JSON.stringify(loginData),
       });
 
-      const data: ApiResponse<any> = await response.json();
-
-      if (data.success) {
+      if (ok && data?.success) {
         login(data.data.token, data.data.user);
         window.location.href = "/admin";
       } else {
-        setError(data.error || "Login failed");
+        const msg =
+          data?.error ||
+          (status === 404
+            ? "Endpoint not found (check API base)"
+            : "Login failed");
+        setError(msg);
       }
     } catch (error) {
       setError("Network error. Please try again.");

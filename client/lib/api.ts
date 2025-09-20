@@ -248,6 +248,35 @@ export const apiRequest = async (
         status: response.status,
         data: responseData,
       });
+
+      // Fallback: if 404 and using baseUrl with '/api', try without '/api'
+      const usedBase = Boolean(API_CONFIG.baseUrl);
+      const hasApiSegment = url.includes("/api/");
+      if (response.status === 404 && usedBase && hasApiSegment) {
+        const altUrl = url.replace("/api/", "/");
+        try {
+          const altRes = await fetch(altUrl, {
+            ...options,
+            signal: controller.signal,
+            headers: {
+              ...(options.headers || {}),
+              ...(getStoredToken()
+                ? { Authorization: `Bearer ${getStoredToken()}` }
+                : {}),
+            },
+            credentials: "include",
+          });
+          let altData: any = {};
+          try {
+            const t = await altRes.clone().text();
+            altData = t?.trim() ? JSON.parse(t) : {};
+          } catch {}
+          clearTimeout(timeoutId);
+          return { data: altData, status: altRes.status, ok: altRes.ok };
+        } catch (e) {
+          console.warn("Fallback without /api failed:", e);
+        }
+      }
     }
 
     return { data: responseData, status: response.status, ok: response.ok };

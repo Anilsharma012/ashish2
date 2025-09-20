@@ -1,5 +1,5 @@
 // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import {
   getAuth,
@@ -17,77 +17,42 @@ import {
 } from "firebase/auth";
 import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 
-// Firebase configuration via environment variables (no secrets committed)
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+// Firebase configuration (exact keys as provided)
+export const firebaseConfig = {
+  apiKey: "AIzaSyAAB9dXWrymvyJSrE8Qg3Op4vXQMEtv2hw",
+  authDomain: "aashish-properties.firebaseapp.com",
+  projectId: "aashish-properties",
+  storageBucket: "aashish-properties.appspot.com",
+  messagingSenderId: "1074799820866",
+  appId: "1:1074799820866:web:60035a614911eb876faddb",
+  measurementId: "G-WJS8TWNW00",
 };
 
-// Initialize Firebase only if required env vars are present
-const isConfigured = Boolean(
-  firebaseConfig.apiKey &&
-    firebaseConfig.authDomain &&
-    firebaseConfig.projectId &&
-    firebaseConfig.appId,
-);
-export const isFirebaseConfigured = isConfigured;
-try {
-  const safeConfig = {
-    apiKey: firebaseConfig.apiKey ? "***SET***" : null,
-    authDomain: firebaseConfig.authDomain || null,
-    projectId: firebaseConfig.projectId || null,
-    appId: firebaseConfig.appId || null,
-  };
-  console.info("Firebase safe config:", safeConfig);
-  console.info("isConfigured:", isConfigured, "env present:", {
-    VITE_FIREBASE_API_KEY: Boolean(import.meta.env.VITE_FIREBASE_API_KEY),
-    VITE_FIREBASE_AUTH_DOMAIN: Boolean(
-      import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    ),
-    VITE_FIREBASE_PROJECT_ID: Boolean(import.meta.env.VITE_FIREBASE_PROJECT_ID),
-    VITE_FIREBASE_APP_ID: Boolean(import.meta.env.VITE_FIREBASE_APP_ID),
-  });
-} catch (e) {
-  // ignore
-}
-let app: any = null;
+// Initialize Firebase (idempotent)
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+export default app;
+export const isFirebaseConfigured = true;
+
 let analytics: any = undefined;
-if (isConfigured) {
-  app = initializeApp(firebaseConfig);
-  // Initialize Analytics only when measurementId is present and in browser
-  if (
-    typeof window !== "undefined" &&
-    Boolean(firebaseConfig.measurementId) &&
-    import.meta.env.MODE === "production"
-  ) {
-    try {
-      analytics = getAnalytics(app);
-    } catch (e) {
-      // Avoid crashing on analytics/installation registration issues in dev
-      console.warn(
-        "Analytics initialization skipped:",
-        (e as any)?.message || e,
-      );
-    }
+if (
+  typeof window !== "undefined" &&
+  Boolean(firebaseConfig.measurementId) &&
+  import.meta.env.MODE === "production"
+) {
+  try {
+    analytics = getAnalytics(app);
+  } catch (e) {
+    console.warn("Analytics initialization skipped:", (e as any)?.message || e);
   }
-} else {
-  console.warn(
-    "Firebase not configured: missing env vars. App will run without Firebase features.",
-  );
 }
 export { analytics };
 
-// Initialize Firebase Auth/Firestore conditionally
-export const auth: any = isConfigured ? getAuth(app) : (null as any);
-export const db: any = isConfigured ? getFirestore(app) : (null as any);
+// Initialize Firebase Auth/Firestore
+export const auth = getAuth(app);
+export const db = getFirestore(app);
 
 // Enable offline persistence (best-effort)
-if (isConfigured && typeof window !== "undefined" && db) {
+if (typeof window !== "undefined" && db) {
   enableIndexedDbPersistence(db).catch((err: any) => {
     if (err?.code === "failed-precondition") {
       console.warn("Firestore persistence disabled: multiple tabs open.");
@@ -104,9 +69,7 @@ if (isConfigured && typeof window !== "undefined" && db) {
 
 // Google Auth Provider
 export const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({
-  prompt: "select_account",
-});
+googleProvider.setCustomParameters({ prompt: "select_account" });
 
 // Phone Auth helpers
 export class PhoneAuthService {
@@ -115,43 +78,52 @@ export class PhoneAuthService {
 
   // Initialize reCAPTCHA verifier (default invisible)
   initializeRecaptcha(
-    containerId: string,
+    containerId?: string,
     size: "normal" | "compact" | "invisible" = "invisible",
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        if (this.recaptchaVerifier) {
-          this.recaptchaVerifier.clear();
+        const w = typeof window !== "undefined" ? (window as any) : {};
+        if (w.recaptchaVerifier) {
+          this.recaptchaVerifier = w.recaptchaVerifier as RecaptchaVerifier;
+          return resolve();
         }
 
-        if (!auth) {
-          return reject(new Error("Firebase not configured"));
+        // Ensure a persistent hidden container to avoid React re-renders removing it
+        let container: string | HTMLElement =
+          containerId || "recaptcha-container-global";
+        if (typeof document !== "undefined") {
+          let el = containerId ? document.getElementById(containerId) : null;
+          if (!el) {
+            el = document.getElementById("recaptcha-container-global");
+          }
+          if (!el) {
+            el = document.createElement("div");
+            el.id = "recaptcha-container-global";
+            el.style.position = "fixed";
+            el.style.left = "-9999px";
+            el.style.bottom = "-9999px";
+            document.body.appendChild(el);
+          }
+          container = el;
         }
-        this.recaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
+
+        this.recaptchaVerifier = new RecaptchaVerifier(auth, container as any, {
           size,
-          callback: () => {
-            console.log("reCAPTCHA solved");
-            resolve();
-          },
-          "expired-callback": () => {
-            console.log("reCAPTCHA expired");
-            reject(new Error("reCAPTCHA expired"));
-          },
-          "error-callback": (error: any) => {
-            console.error("reCAPTCHA error:", error);
-            reject(error);
-          },
+          callback: () => resolve(),
+          "expired-callback": () => reject(new Error("reCAPTCHA expired")),
+          "error-callback": (error: any) => reject(error),
         });
+
+        if (typeof window !== "undefined") {
+          (window as any).recaptchaVerifier = this.recaptchaVerifier;
+        }
 
         this.recaptchaVerifier
           .render()
-          .then(() => {
-            console.log("reCAPTCHA rendered successfully");
-            resolve();
-          })
+          .then(() => resolve())
           .catch(reject);
       } catch (error) {
-        console.error("Failed to initialize reCAPTCHA:", error);
         reject(error);
       }
     });
@@ -166,12 +138,9 @@ export class PhoneAuthService {
     }
 
     try {
-      // Format phone number to include country code
       const formattedPhoneNumber = phoneNumber.startsWith("+")
         ? phoneNumber
         : `+91${phoneNumber}`;
-
-      console.log("Sending OTP to:", formattedPhoneNumber);
 
       this.confirmationResult = await signInWithPhoneNumber(
         auth,
@@ -179,10 +148,8 @@ export class PhoneAuthService {
         this.recaptchaVerifier,
       );
 
-      console.log("OTP sent successfully");
       return this.confirmationResult;
     } catch (error) {
-      console.error("Failed to send OTP:", error);
       throw this.handleAuthError(error as AuthError);
     }
   }
@@ -192,13 +159,10 @@ export class PhoneAuthService {
     if (!this.confirmationResult) {
       throw new Error("No confirmation result available. Send OTP first.");
     }
-
     try {
       const result = await this.confirmationResult.confirm(code);
-      console.log("Phone authentication successful");
       return result.user;
     } catch (error) {
-      console.error("OTP verification failed:", error);
       throw this.handleAuthError(error as AuthError);
     }
   }
@@ -215,7 +179,6 @@ export class PhoneAuthService {
   // Handle auth errors with user-friendly messages
   private handleAuthError(error: AuthError): Error {
     let message = "Authentication failed";
-
     switch (error.code) {
       case "auth/invalid-phone-number":
         message = "Invalid phone number. Please check and try again.";
@@ -242,57 +205,40 @@ export class PhoneAuthService {
         message = "reCAPTCHA verification failed. Please try again.";
         break;
       default:
-        message = error.message || "Authentication failed";
+        message = (error as any)?.message || "Authentication failed";
     }
-
     return new Error(message);
   }
 }
 
 // Google Auth helpers
-// Google Auth helpers
 export const signInWithGoogle = async (): Promise<FirebaseUser> => {
   try {
-    if (!auth) throw new Error("Firebase not configured");
-
     // First, handle redirect result (for environments where popups are blocked)
     try {
       const redirectRes = await getRedirectResult(auth);
       if (redirectRes && redirectRes.user) {
         return redirectRes.user;
       }
-    } catch (e) {
-      // ignore redirect errors - we'll fallback to popup
-    }
+    } catch {}
 
     // Try popup normally
     try {
       const result = await signInWithPopup(auth, googleProvider);
       return result.user;
     } catch (popupError: any) {
-      // If popup fails due to being blocked, fallback to redirect
       const code = popupError?.code || "";
       if (
         code === "auth/popup-blocked" ||
         code === "auth/popup-closed-by-user"
       ) {
-        try {
-          await signInWithRedirect(auth, googleProvider);
-          // After redirect, the app will reload and getRedirectResult will resolve
-          // Throw an informative error so caller can show a message if needed
-          throw new Error("Redirecting to Google sign-in (popup blocked)");
-        } catch (redirectErr) {
-          // If redirect also fails, fall through to standard error handling
-          console.error("Google redirect failed:", redirectErr);
-          throw redirectErr;
-        }
+        await signInWithRedirect(auth, googleProvider);
+        throw new Error("Redirecting to Google sign-in (popup blocked)");
       }
       throw popupError;
     }
   } catch (error) {
-    console.error("Google authentication failed:", error);
     const authError = error as AuthError;
-
     let message = "Google authentication failed";
     switch (authError?.code) {
       case "auth/popup-closed-by-user":
@@ -316,11 +262,10 @@ export const signInWithGoogle = async (): Promise<FirebaseUser> => {
         break;
       default:
         message =
-          (error && (error as any).message) ||
+          (error as any)?.message ||
           authError?.message ||
           "Google authentication failed";
     }
-
     throw new Error(message);
   }
 };
@@ -328,11 +273,8 @@ export const signInWithGoogle = async (): Promise<FirebaseUser> => {
 // Sign out
 export const signOutUser = async (): Promise<void> => {
   try {
-    if (!auth) return;
     await signOut(auth);
-    console.log("User signed out successfully");
   } catch (error) {
-    console.error("Sign out failed:", error);
     throw error;
   }
 };
@@ -341,17 +283,9 @@ export const signOutUser = async (): Promise<void> => {
 export const onAuthStateChange = (
   callback: (user: FirebaseUser | null) => void,
 ) => {
-  if (!auth) return () => {};
   return onAuthStateChanged(auth, callback);
 };
 
 // Utility functions
-export const getCurrentUser = (): FirebaseUser | null => {
-  return auth ? auth.currentUser : null;
-};
-
-export const isUserSignedIn = (): boolean => {
-  return !!(auth && auth.currentUser);
-};
-
-export default app;
+export const getCurrentUser = (): FirebaseUser | null => auth.currentUser;
+export const isUserSignedIn = (): boolean => !!auth.currentUser;
