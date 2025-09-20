@@ -258,7 +258,12 @@ export const apiRequest = async (
           const altRes = await fetch(altUrl, {
             ...options,
             signal: controller.signal,
-            headers: { ...(options.headers || {}), ...(getStoredToken() ? { Authorization: `Bearer ${getStoredToken()}` } : {}) },
+            headers: {
+              ...(options.headers || {}),
+              ...(getStoredToken()
+                ? { Authorization: `Bearer ${getStoredToken()}` }
+                : {}),
+            },
             credentials: "include",
           });
           let altData: any = {};

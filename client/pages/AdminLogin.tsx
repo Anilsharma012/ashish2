@@ -42,7 +42,11 @@ export default function AdminLogin() {
         login(data.data.token, data.data.user);
         window.location.href = "/admin";
       } else {
-        const msg = data?.error || (status === 404 ? "Endpoint not found (check API base)" : "Login failed");
+        const msg =
+          data?.error ||
+          (status === 404
+            ? "Endpoint not found (check API base)"
+            : "Login failed");
         setError(msg);
       }
     } catch (error) {

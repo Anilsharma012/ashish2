@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { signInWithGoogle, isFirebaseConfigured, onAuthStateChange } from "@/lib/firebase";
+import {
+  signInWithGoogle,
+  isFirebaseConfigured,
+  onAuthStateChange,
+} from "@/lib/firebase";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api";
 import { Button } from "../components/ui/button";
@@ -71,7 +75,9 @@ const ComprehensiveAuth = () => {
       if (u) navigate("/");
     });
     return () => {
-      try { unsub && unsub(); } catch {}
+      try {
+        unsub && unsub();
+      } catch {}
     };
   }, []);
 

@@ -59,7 +59,10 @@ if (typeof window !== "undefined" && db) {
     } else if (err?.code === "unimplemented") {
       console.warn("Firestore persistence not available in this browser.");
     } else {
-      console.warn("Failed to enable Firestore persistence:", err?.message || err);
+      console.warn(
+        "Failed to enable Firestore persistence:",
+        err?.message || err,
+      );
     }
   });
 }
@@ -87,7 +90,8 @@ export class PhoneAuthService {
         }
 
         // Ensure a persistent hidden container to avoid React re-renders removing it
-        let container: string | HTMLElement = containerId || "recaptcha-container-global";
+        let container: string | HTMLElement =
+          containerId || "recaptcha-container-global";
         if (typeof document !== "undefined") {
           let el = containerId ? document.getElementById(containerId) : null;
           if (!el) {
@@ -128,7 +132,9 @@ export class PhoneAuthService {
   // Send OTP to phone number
   async sendOTP(phoneNumber: string): Promise<ConfirmationResult> {
     if (!this.recaptchaVerifier) {
-      throw new Error("reCAPTCHA not initialized. Call initializeRecaptcha first.");
+      throw new Error(
+        "reCAPTCHA not initialized. Call initializeRecaptcha first.",
+      );
     }
 
     try {
@@ -222,7 +228,10 @@ export const signInWithGoogle = async (): Promise<FirebaseUser> => {
       return result.user;
     } catch (popupError: any) {
       const code = popupError?.code || "";
-      if (code === "auth/popup-blocked" || code === "auth/popup-closed-by-user") {
+      if (
+        code === "auth/popup-blocked" ||
+        code === "auth/popup-closed-by-user"
+      ) {
         await signInWithRedirect(auth, googleProvider);
         throw new Error("Redirecting to Google sign-in (popup blocked)");
       }
@@ -248,10 +257,14 @@ export const signInWithGoogle = async (): Promise<FirebaseUser> => {
         message = "This domain is not authorized for Google authentication";
         break;
       case "auth/network-request-failed":
-        message = "Network error. Add this preview domain to Firebase > Authentication > Settings > Authorized domains, then retry.";
+        message =
+          "Network error. Add this preview domain to Firebase > Authentication > Settings > Authorized domains, then retry.";
         break;
       default:
-        message = (error as any)?.message || authError?.message || "Google authentication failed";
+        message =
+          (error as any)?.message ||
+          authError?.message ||
+          "Google authentication failed";
     }
     throw new Error(message);
   }

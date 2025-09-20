@@ -44,7 +44,11 @@ export default function Categories() {
   }, []);
 
   const getBuilderApiKey = () => {
-    const k = (typeof window !== "undefined" && (window as any).BUILDER_PUBLIC_API_KEY) || import.meta.env.VITE_BUILDER_PUBLIC_API_KEY || "";
+    const k =
+      (typeof window !== "undefined" &&
+        (window as any).BUILDER_PUBLIC_API_KEY) ||
+      import.meta.env.VITE_BUILDER_PUBLIC_API_KEY ||
+      "";
     return typeof k === "string" ? k : "";
   };
 
@@ -56,7 +60,9 @@ export default function Categories() {
 
       if (apiKey) {
         const url = `https://cdn.builder.io/api/v3/content/category?apiKey=${encodeURIComponent(apiKey)}&published=true&limit=200&sort.createdDate=desc${cacheBuster}`;
-        const res = await fetch(url, { headers: { "Cache-Control": "no-cache", Pragma: "no-cache" } });
+        const res = await fetch(url, {
+          headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+        });
         const json = await res.json().catch(() => ({ results: [] }));
         const items = Array.isArray(json.results) ? json.results : [];
         const mapped: Category[] = items.map((it: any) => ({
@@ -70,14 +76,22 @@ export default function Categories() {
           active: Boolean(it?.data?.active ?? true),
         }));
         setCategories(mapped);
-        try { window.dispatchEvent(new CustomEvent("categories:updated")); } catch {}
+        try {
+          window.dispatchEvent(new CustomEvent("categories:updated"));
+        } catch {}
       } else {
         const url = `/api/categories?published=true&limit=200${cacheBuster}`;
-        const response = await fetch(url, { headers: { "Cache-Control": "no-cache", Pragma: "no-cache" } });
-        const data = await response.json().catch(() => ({ success: false, data: [] }));
+        const response = await fetch(url, {
+          headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+        });
+        const data = await response
+          .json()
+          .catch(() => ({ success: false, data: [] }));
         if (data.success) {
           setCategories(data.data || []);
-          try { window.dispatchEvent(new CustomEvent("categories:updated")); } catch {}
+          try {
+            window.dispatchEvent(new CustomEvent("categories:updated"));
+          } catch {}
         }
       }
     } catch (error) {
@@ -90,13 +104,23 @@ export default function Categories() {
   const fetchSubcategoriesFor = async (category: Category) => {
     const apiKey = getBuilderApiKey();
     if (!apiKey || !category?._id) return [] as Subcategory[];
-    const query = encodeURIComponent(JSON.stringify({ "data.parentId": category._id }));
+    const query = encodeURIComponent(
+      JSON.stringify({ "data.parentId": category._id }),
+    );
     const url = `https://cdn.builder.io/api/v3/content/subCategory?apiKey=${encodeURIComponent(apiKey)}&published=true&limit=200&query=${query}`;
-    const res = await fetch(url, { headers: { "Cache-Control": "no-cache", Pragma: "no-cache" } });
+    const res = await fetch(url, {
+      headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+    });
     const json = await res.json().catch(() => ({ results: [] }));
     const items = Array.isArray(json.results) ? json.results : [];
     const subs: Subcategory[] = items.map((it: any) => ({
-      id: it?.id || it?._id || it?.data?.id || it?.data?._id || it?.data?.slug || "",
+      id:
+        it?.id ||
+        it?._id ||
+        it?.data?.id ||
+        it?.data?._id ||
+        it?.data?.slug ||
+        "",
       name: it?.data?.name || it?.name || "",
       slug: it?.data?.slug || it?.slug || "",
       description: it?.data?.description || "",
@@ -134,7 +158,9 @@ export default function Categories() {
     // Prefer showing subcategories with Builder when available
     const apiKey = getBuilderApiKey();
     if (apiKey) {
-      const subs = await fetchSubcategoriesFor(category).catch(() => [] as Subcategory[]);
+      const subs = await fetchSubcategoriesFor(category).catch(
+        () => [] as Subcategory[],
+      );
       setSelectedCategory({ ...category, subcategories: subs });
       return;
     }
